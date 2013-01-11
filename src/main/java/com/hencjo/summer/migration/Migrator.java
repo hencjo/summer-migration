@@ -30,10 +30,11 @@ public final class Migrator {
 	private void migrations(Connection connection, Migration[] migrations) throws SQLException, IOException {
 		for (Migration migration : migrations) {
 			if (schemaMigrations.isApplied(connection, migration.key)) continue;
+			System.out.print("Applying migration \"" + migration.key + "\" ... ");
 			for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);	
 			schemaMigrations.addApplied(connection, migration.key);
 			connection.commit();
-			System.out.println("Applied migration " + migration.key + ".");
+			System.out.println("DONE.");
 		}
 	}
 }
