@@ -3,16 +3,12 @@ package com.hencjo.summer.migration.dsl;
 import com.google.common.base.Function;
 
 public final class DSL {
-	public static UpgradeDescription upgradeDescription(Baseline baseline, Migration ... migrations) {
-		return new UpgradeDescription(baseline, migrations);
-	}
-
-	public static BaselinePart baseline(String version) {
-		return new BaselinePart(version);
+	public static MigrationsDescription migrations(Migration ... migrations) {
+		return new MigrationsDescription(migrations);
 	}
 	
-	public static MigrationFromPart version(String version) {
-		return new MigrationFromPart(version);
+	public static MigrationPart migration(String version) {
+		return new MigrationPart(version);
 	}
 	
 	public static ScriptUpgradeStep script(String scriptName) {
