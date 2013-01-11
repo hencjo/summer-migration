@@ -32,7 +32,7 @@ public final class Upgrader {
 			for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);	
 			schemaVersion.set(connection, migration.to);
 			connection.commit();
-			System.out.println("Upgraded schema to version " + migration.to + ".");
+			System.out.println("Upgraded to " + migration.to + ".");
 		}
 	}
 
@@ -40,6 +40,6 @@ public final class Upgrader {
 		for (UpgradeStep upgradeStep : baseline.upgradeSteps) upgradeStep.apply(connection);
 		schemaVersion.create(connection, baseline.version);
 		connection.commit();
-		System.out.println("Installed schema version: " + baseline.version + ".");
+		System.out.println("Installed baseline for " + baseline.version + ".");
 	}
 }
