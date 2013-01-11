@@ -2,6 +2,7 @@ package com.hencjo.summer.migration;
 
 import java.io.IOException;
 import java.sql.*;
+import com.google.common.base.Optional;
 import com.hencjo.summer.migration.api.UpgradeStep;
 import com.hencjo.summer.migration.dsl.Baseline;
 import com.hencjo.summer.migration.dsl.Migration;
@@ -41,5 +42,12 @@ public final class Upgrader {
 		schemaVersion.create(connection, baseline.version);
 		connection.commit();
 		System.out.println("Installed baseline for " + baseline.version + ".");
+	}
+	
+	public void assertDatabaseIsOfVersion(Connection connection, String expected) throws SQLException {
+		Optional<String> databaseVersion = schemaVersion.get(connection);
+		if (!databaseVersion.isPresent()) throw new RuntimeException("Could not read version from database.");
+		String actual = databaseVersion.get();
+		if (!actual.equals(expected)) throw new RuntimeException("Database version (" + actual + ") does not match expected version (" + expected + ").");
 	}
 }
