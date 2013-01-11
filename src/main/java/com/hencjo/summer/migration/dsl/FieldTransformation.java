@@ -5,7 +5,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import com.google.common.base.Function;
+import com.hencjo.summer.migration.api.Function;
 import com.hencjo.summer.migration.api.UpgradeStep;
 
 public final class FieldTransformation implements UpgradeStep {
@@ -13,9 +13,9 @@ public final class FieldTransformation implements UpgradeStep {
 	private final Function<String, String> f;
 	private final String table;
 
-	FieldTransformation(String table, String field, Function<String, String> f) {
+	FieldTransformation(String table, String field, Function<String, String> f2) {
 		this.field = field;
-		this.f = f;
+		this.f = f2;
 		this.table = table;
 	}
 

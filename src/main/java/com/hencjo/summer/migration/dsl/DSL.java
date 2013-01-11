@@ -1,6 +1,6 @@
 package com.hencjo.summer.migration.dsl;
 
-import com.google.common.base.Function;
+import com.hencjo.summer.migration.api.Function;
 
 public final class DSL {
 	public static MigrationsDescription migrations(Migration ... migrations) {
