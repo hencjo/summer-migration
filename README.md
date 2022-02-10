@@ -41,12 +41,6 @@ Include it in your pom like this:
 <dependency>
     <groupId>com.hencjo.summer</groupId>
     <artifactId>summer-migration</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
 </dependency>
 ```
-
-## Release Notes
-
-### Version 1.1
-
-* **Changed output to stdout while applying migrations** Before 1.1, Summer Migration would print 'Applying migration "X" ... ' (without newline) and then completing the  line with 'DONE.' (with newline). It was nice on your console, but didn't work well with logging systems that only replicate lines when newline has been sent. Version 1.1 instead prints "Applying migration "x" ..." (with newline). "DONE." will no longer be printed.
