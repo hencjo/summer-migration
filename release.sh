@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -e
 VERSION=`git describe`
 cat pom.xml | sed -e "s/1-NO-VERSION-SNAPSHOT/$VERSION/g"  > tmp-release.pom
 mvn -f tmp-release.pom clean package
