@@ -34,7 +34,7 @@ public final class Migrator {
 		for (Migration migration : migrations) {
 			if (schemaMigrations.isApplied(connection, migration.key)) continue;
 			System.out.println("Applying migration \"" + migration.key + "\" ... ");
-            Instant start = Instant.now();
+			Instant start = Instant.now();
 			for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);
 			Duration duration = Duration.between(start, Instant.now());
 			System.out.printf("Migration \"%s\" completed in %d.%03ds%n", migration.key, duration.getSeconds(), duration.getNano() / 1_000_000);
