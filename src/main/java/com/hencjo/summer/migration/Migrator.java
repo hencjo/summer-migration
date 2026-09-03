@@ -21,11 +21,14 @@ public final class Migrator {
 	public void migrate(Connection connection, MigrationsDescription upgradeDescription) throws IOException, SQLException {
 		connection.setAutoCommit(false);
 
-		if (!database.containsTables(connection))
+		int numberOfTables = database.numberOfTables(connection);
+		if (numberOfTables == 0) {
 			schemaMigrations.create(connection);
-
-		if (!schemaMigrations.exists(connection))
-			throw new RuntimeException("Expected " + schemaMigrations.tableName + " to exist and contain the version number. It doesn't.");
+			connection.commit();
+		} else if (!schemaMigrations.exists(connection)) {
+			String tables = numberOfTables == 1 ? "table" : "tables";
+			throw new RuntimeException("The current schema contains " + numberOfTables + " " + tables + " but is missing table '" + schemaMigrations.tableName + "'.");
+		}
 
 		migrations(connection, upgradeDescription.migrations);
 	}

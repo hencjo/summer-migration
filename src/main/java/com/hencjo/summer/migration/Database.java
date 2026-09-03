@@ -7,11 +7,14 @@ import java.sql.Statement;
 
 public final class Database {
 	public boolean containsTables(Connection connection) throws SQLException {
+		return numberOfTables(connection) > 0;
+	}
+
+	int numberOfTables(Connection connection) throws SQLException {
 		try (Statement s = connection.createStatement()) {
 			try (ResultSet r = s.executeQuery("SELECT count(*) as c FROM pg_tables WHERE schemaname=current_schema();")) {
 				r.next();
-				int numberOfTables = r.getInt(1);
-				return numberOfTables > 0;
+				return r.getInt(1);
 			}
 		}
 	}

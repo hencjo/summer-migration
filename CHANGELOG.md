@@ -6,6 +6,7 @@
 
 ## Bug fixes
 
+* Commit `schema_migrations` when bootstrapping an empty schema and clarify the missing-table error ([#1](https://github.com/hencjo/summer-migration/issues/1))
 * Use current schema for migration bookkeeping ([#2](https://github.com/hencjo/summer-migration/issues/2))
 
 ## Chores
