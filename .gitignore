@@ -2,6 +2,7 @@
 .classpath
 .project
 target
+.flattened-pom.xml
 .idea/
 summer-migration.iml
 default.nix
