@@ -1,9 +1,10 @@
 { pkgs, lib, config, inputs, ... }:
 
 {
-  packages = with pkgs;[ 
+  packages = with pkgs;[
     git
     gh
+    gnupg
   ];
 
   languages.java = {
@@ -14,6 +15,10 @@
 
   scripts.build.exec = ''
     mvn package
+  '';
+
+  scripts.release.exec = ''
+    ./release.sh "$@"
   '';
 
   enterTest = ''
