@@ -1,8 +1,14 @@
 # UNRELEASED
 
-## Features
+## Breaking changes
+
+## Features and improvements
 
 * Report migration duration ([#5](https://github.com/hencjo/summer-migration/pull/5))
+
+## Bug fixes
+
+## Chores
 
 # Summer Migration 1.2
 
