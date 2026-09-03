@@ -19,7 +19,7 @@ public class SchemaMigrations {
 		try (PreparedStatement p = connection.prepareStatement("INSERT INTO " + tableName + " (id) VALUES (?);")) {
 			p.setString(1, key);
 			p.executeUpdate();
-		}		
+		}
 	}
 
 	public boolean isApplied(Connection connection, String key) throws SQLException {
@@ -33,7 +33,7 @@ public class SchemaMigrations {
 	}
 
 	public boolean exists(Connection connection) throws SQLException {
-		try (PreparedStatement ps = connection.prepareStatement("select count(tablename) from pg_tables where schemaname='public' AND tablename=?;")) {
+		try (PreparedStatement ps = connection.prepareStatement("select count(tablename) from pg_tables where schemaname=current_schema() AND tablename=?;")) {
 			ps.setString(1, tableName);
 			try (ResultSet r = ps.executeQuery()) {
 				r.next();

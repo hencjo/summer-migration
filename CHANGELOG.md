@@ -6,6 +6,8 @@
 
 ## Bug fixes
 
+* Use current schema for migration bookkeeping ([#2](https://github.com/hencjo/summer-migration/issues/2))
+
 ## Chores
 
 # Version 1.3.0
