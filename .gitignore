@@ -6,3 +6,4 @@ target
 summer-migration.iml
 default.nix
 .devenv/
+.pre-commit-config.yaml
