@@ -45,36 +45,6 @@ Include it in your pom like this:
 </dependency>
 ```
 
-## Releasing
+## Contributing
 
-Releases are made locally from an annotated version tag. Maven Central deployments are immutable, so the default command only builds and signs the publishable artifacts locally; it never uploads them.
-
-One-time setup:
-
-1. Log in to the [Central Publisher Portal](https://central.sonatype.com/) and confirm access to the `com.hencjo.summer` namespace.
-2. Generate a Portal user token and put its username and password in `~/.m2/settings.xml` under the `central` server id. Do not commit this file.
-3. Restore the existing PGP signing key, or generate a replacement and publish its public key. Keep the private key and passphrase out of the repository; `gpg-agent` handles the interactive passphrase prompt.
-
-```xml
-<settings>
-  <servers>
-    <server>
-      <id>central</id>
-      <username>PORTAL_TOKEN_USERNAME</username>
-      <password>PORTAL_TOKEN_PASSWORD</password>
-    </server>
-  </servers>
-</settings>
-```
-
-For a release, commit the changes, create and push an annotated tag, then run:
-
-```sh
-devenv shell -- release 1.3
-```
-
-Inspect the signed JARs and `.asc` files in `target/`. To upload and automatically publish that exact tagged version, rerun the command with the explicit `--publish` confirmation:
-
-```sh
-devenv shell -- release 1.3 --publish
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and release instructions.
