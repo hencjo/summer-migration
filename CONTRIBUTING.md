@@ -28,9 +28,9 @@ Prepare the next semantic version from the entries under `# UNRELEASED`:
 devenv shell -- release
 ```
 
-Breaking changes bump the major version, features and improvements bump the minor version, and bug fixes or chores bump the patch version. Preparation signs locally, moves the entries into the generated version section, and creates a fresh `# UNRELEASED` template without uploading anything.
+Breaking changes bump the major version, features and improvements bump the minor version, and bug fixes or chores bump the patch version. Preparation signs locally, moves populated sections into the generated version section, creates a fresh `# UNRELEASED` template, commits the changelog, and creates an annotated tag without uploading anything.
 
-Review and commit the changelog, create and push the generated semantic-version tag, then explicitly publish it:
+Inspect the generated commit and tag, then explicitly publish. The publish command is non-interactive, uploads to Maven Central, and pushes the branch and tag only after publication succeeds:
 
 ```sh
 devenv shell -- release --publish

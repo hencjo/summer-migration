@@ -10,6 +10,8 @@
 
 ## Chores
 
+* Automate release commit and tagging ([#6](https://github.com/hencjo/summer-migration/issues/6))
+
 # Version 1.3.0
 
 ## Features and improvements

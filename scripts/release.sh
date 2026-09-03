@@ -24,12 +24,15 @@ if [[ "$MODE" == "--publish" ]]; then
     echo "Refusing to publish: $VERSION is not finalized in CHANGELOG.md." >&2
     exit 1
   }
-  read -r -p "Type '$VERSION' to publish it to Maven Central: " CONFIRMATION
-  [[ "$CONFIRMATION" == "$VERSION" ]] || {
-    echo "Publishing cancelled."
+  BRANCH="$(git symbolic-ref --quiet --short HEAD || true)"
+  [[ -n "$BRANCH" ]] || {
+    echo "Refusing to publish from a detached HEAD." >&2
     exit 1
   }
+  git push --dry-run origin "$BRANCH" "$VERSION"
+  echo "Publishing $VERSION to Maven Central."
   mvn -Prelease -Drevision="$VERSION" clean deploy
+  git push origin "$BRANCH" "$VERSION"
   exit 0
 fi
 
@@ -55,6 +58,15 @@ has_entries() {
     found && /^## / { exit }
     found && /^\* / { entry = 1 }
     END { exit !entry }
+  ' <<< "$UNRELEASED"
+}
+
+section_entries() {
+  local section="$1"
+  awk -v section="## $section" '
+    $0 == section { found = 1; next }
+    found && /^## / { exit }
+    found && /^\* / { print }
   ' <<< "$UNRELEASED"
 }
 
@@ -87,9 +99,25 @@ trap 'rm -f "$TMP"' EXIT
 ## Chores
 
 EOF
-  sed "1s/^# UNRELEASED$/# Version $VERSION/" CHANGELOG.md
+  printf '# Version %s\n' "$VERSION"
+  for SECTION in "Breaking changes" "Features and improvements" "Bug fixes" "Chores"; do
+    ENTRIES="$(section_entries "$SECTION")"
+    if [[ -n "$ENTRIES" ]]; then
+      printf '\n## %s\n\n%s\n' "$SECTION" "$ENTRIES"
+    fi
+  done
+  printf '\n'
+  awk '
+    $0 == "# UNRELEASED" { found = 1; next }
+    found && /^# / { history = 1 }
+    history { print }
+  ' CHANGELOG.md
 } > "$TMP"
 mv "$TMP" CHANGELOG.md
 trap - EXIT
 
-echo "Prepared $VERSION. Review and commit CHANGELOG.md, then tag HEAD with $VERSION."
+git add CHANGELOG.md
+git commit -m "Release $VERSION"
+git tag -a "$VERSION" -m "Version $VERSION"
+
+echo "Prepared and tagged $VERSION locally. Run 'release --publish' to publish and push it."
