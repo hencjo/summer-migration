@@ -17,10 +17,6 @@
     mvn package
   '';
 
-  scripts.changelog.exec = ''
-    ./scripts/changelog.sh "$@"
-  '';
-
   scripts.release.exec = ''
     ./scripts/release.sh "$@"
   '';
