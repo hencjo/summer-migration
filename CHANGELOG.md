@@ -6,6 +6,8 @@
 
 ## Bug fixes
 
+* Use the configured table for field transformations.
+
 ## Chores
 
 # Version 1.3.1

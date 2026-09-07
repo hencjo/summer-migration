@@ -23,7 +23,7 @@ public final class FieldTransformation implements UpgradeStep {
 	public void apply(Connection connection) throws IOException, SQLException {
 		try (PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT " + field + " FROM " + table + ";")) {
 			try (ResultSet rs = ps.executeQuery()) {
-				try (PreparedStatement ps2 = connection.prepareStatement("UPDATE workspaceaccesses SET " + field + " = ? WHERE " + field + " = ?;")) {
+				try (PreparedStatement ps2 = connection.prepareStatement("UPDATE " + table + " SET " + field + " = ? WHERE " + field + " = ?;")) {
 					while (rs.next()) {
 						String value = rs.getString(1);
 						ps2.setString(1, f.apply(value));
