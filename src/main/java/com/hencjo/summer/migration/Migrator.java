@@ -38,9 +38,18 @@ public final class Migrator {
 			if (schemaMigrations.isApplied(connection, migration.key)) continue;
 			System.out.println("Applying migration \"" + migration.key + "\" ... ");
 			Instant start = Instant.now();
-			for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);
-			schemaMigrations.addApplied(connection, migration.key);
-			connection.commit();
+			try {
+				for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);
+				schemaMigrations.addApplied(connection, migration.key);
+				connection.commit();
+			} catch (IOException | SQLException | RuntimeException e) {
+				try {
+					connection.rollback();
+				} catch (SQLException rollbackFailure) {
+					e.addSuppressed(rollbackFailure);
+				}
+				throw e;
+			}
 			Duration duration = Duration.between(start, Instant.now());
 			System.out.printf("Migration \"%s\" completed in %d.%03ds%n", migration.key, duration.getSeconds(), duration.getNano() / 1_000_000);
 		}

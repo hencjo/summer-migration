@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 import org.junit.Test;
@@ -70,6 +71,63 @@ public class MigratorTest {
 		order.verify(createStatement).executeUpdate(CREATE_SCHEMA_MIGRATIONS_SQL);
 		order.verify(connection).commit();
 		order.verify(failingStep).apply(connection);
+		order.verify(connection).rollback();
+	}
+
+	@Test
+	public void rollsBackAndPreservesARuntimeMigrationFailure() throws Exception {
+		Connection connection = mock(Connection.class);
+		Statement tableCountStatement = tableCountStatement(1);
+		when(connection.createStatement()).thenReturn(tableCountStatement);
+		PreparedStatement existsStatement = mock(PreparedStatement.class);
+		ResultSet existsResult = mock(ResultSet.class);
+		when(connection.prepareStatement(SCHEMA_MIGRATIONS_EXISTS_SQL)).thenReturn(existsStatement);
+		when(existsStatement.executeQuery()).thenReturn(existsResult);
+		when(existsResult.getInt(1)).thenReturn(1);
+		PreparedStatement isAppliedStatement = mock(PreparedStatement.class);
+		ResultSet isAppliedResult = mock(ResultSet.class);
+		when(connection.prepareStatement(IS_APPLIED_SQL)).thenReturn(isAppliedStatement);
+		when(isAppliedStatement.executeQuery()).thenReturn(isAppliedResult);
+		when(isAppliedResult.getInt(1)).thenReturn(0);
+		UpgradeStep failingStep = mock(UpgradeStep.class);
+		org.mockito.Mockito.doThrow(new IllegalStateException("migration failed")).when(failingStep).apply(connection);
+
+		try {
+			new Migrator().migrate(connection, migrations(migration("fails").installsThrough(failingStep)));
+			fail("Expected the migration to fail");
+		} catch (IllegalStateException expected) {
+			assertEquals("migration failed", expected.getMessage());
+		}
+
+		verify(connection).rollback();
+		verify(connection, never()).commit();
+	}
+
+	@Test
+	public void keepsTheMigrationFailureWhenRollbackAlsoFails() throws Exception {
+		Connection connection = mock(Connection.class);
+		Statement tableCountStatement = tableCountStatement(0);
+		Statement createStatement = mock(Statement.class);
+		when(connection.createStatement()).thenReturn(tableCountStatement, createStatement);
+		PreparedStatement isAppliedStatement = mock(PreparedStatement.class);
+		ResultSet isAppliedResult = mock(ResultSet.class);
+		when(connection.prepareStatement(IS_APPLIED_SQL)).thenReturn(isAppliedStatement);
+		when(isAppliedStatement.executeQuery()).thenReturn(isAppliedResult);
+		when(isAppliedResult.getInt(1)).thenReturn(0);
+		UpgradeStep failingStep = mock(UpgradeStep.class);
+		IOException migrationFailure = new IOException("migration failed");
+		SQLException rollbackFailure = new SQLException("rollback failed");
+		org.mockito.Mockito.doThrow(migrationFailure).when(failingStep).apply(connection);
+		org.mockito.Mockito.doThrow(rollbackFailure).when(connection).rollback();
+
+		try {
+			new Migrator().migrate(connection, migrations(migration("fails").installsThrough(failingStep)));
+			fail("Expected the migration to fail");
+		} catch (IOException expected) {
+			assertEquals(migrationFailure, expected);
+			assertEquals(1, expected.getSuppressed().length);
+			assertEquals(rollbackFailure, expected.getSuppressed()[0]);
+		}
 	}
 
 	@Test
