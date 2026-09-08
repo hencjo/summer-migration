@@ -21,13 +21,19 @@ public final class Migrator {
 	public void migrate(Connection connection, MigrationsDescription upgradeDescription) throws IOException, SQLException {
 		connection.setAutoCommit(false);
 
-		int numberOfTables = database.numberOfTables(connection);
-		if (numberOfTables == 0) {
-			schemaMigrations.create(connection);
+		try {
+			database.lockMigrations(connection);
+			int numberOfTables = database.numberOfTables(connection);
+			if (numberOfTables == 0) {
+				schemaMigrations.create(connection);
+			} else if (!schemaMigrations.exists(connection)) {
+				String tables = numberOfTables == 1 ? "table" : "tables";
+				throw new RuntimeException("The current schema contains " + numberOfTables + " " + tables + " but is missing table '" + schemaMigrations.tableName + "'.");
+			}
 			connection.commit();
-		} else if (!schemaMigrations.exists(connection)) {
-			String tables = numberOfTables == 1 ? "table" : "tables";
-			throw new RuntimeException("The current schema contains " + numberOfTables + " " + tables + " but is missing table '" + schemaMigrations.tableName + "'.");
+		} catch (SQLException | RuntimeException e) {
+			rollback(connection, e);
+			throw e;
 		}
 
 		migrations(connection, upgradeDescription.migrations);
@@ -35,23 +41,32 @@ public final class Migrator {
 
 	private void migrations(Connection connection, Migration[] migrations) throws SQLException, IOException {
 		for (Migration migration : migrations) {
-			if (schemaMigrations.isApplied(connection, migration.key)) continue;
-			System.out.println("Applying migration \"" + migration.key + "\" ... ");
-			Instant start = Instant.now();
+			Instant start;
 			try {
+				database.lockMigrations(connection);
+				if (schemaMigrations.isApplied(connection, migration.key)) {
+					connection.commit();
+					continue;
+				}
+				System.out.println("Applying migration \"" + migration.key + "\" ... ");
+				start = Instant.now();
 				for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);
 				schemaMigrations.addApplied(connection, migration.key);
 				connection.commit();
 			} catch (IOException | SQLException | RuntimeException e) {
-				try {
-					connection.rollback();
-				} catch (SQLException rollbackFailure) {
-					e.addSuppressed(rollbackFailure);
-				}
+				rollback(connection, e);
 				throw e;
 			}
 			Duration duration = Duration.between(start, Instant.now());
 			System.out.printf("Migration \"%s\" completed in %d.%03ds%n", migration.key, duration.getSeconds(), duration.getNano() / 1_000_000);
+		}
+	}
+
+	private void rollback(Connection connection, Exception failure) {
+		try {
+			connection.rollback();
+		} catch (SQLException rollbackFailure) {
+			failure.addSuppressed(rollbackFailure);
 		}
 	}
 }

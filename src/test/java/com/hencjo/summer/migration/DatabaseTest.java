@@ -7,14 +7,30 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
 import org.junit.Test;
 
 public class DatabaseTest {
+	private static final String MIGRATION_LOCK_SQL =
+			"SELECT pg_advisory_xact_lock(hashtext(?));";
 	private static final String NUMBER_OF_TABLES_SQL =
 			"SELECT count(*) as c FROM pg_tables WHERE schemaname=current_schema();";
+
+	@Test
+	public void locksMigrationTransactions() throws Exception {
+		Connection connection = mock(Connection.class);
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(connection.prepareStatement(MIGRATION_LOCK_SQL)).thenReturn(statement);
+
+		new Database().lockMigrations(connection);
+
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(statement);
+		order.verify(statement).setString(1, "summer-migration");
+		order.verify(statement).execute();
+	}
 
 	@Test
 	public void returnsTheNumberOfTablesInTheCurrentSchema() throws Exception {

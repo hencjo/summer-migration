@@ -6,6 +6,7 @@
 
 ## Bug fixes
 
+* Serialize concurrent migration runners with a PostgreSQL advisory lock.
 * Roll back failed migrations without masking the original error.
 * Use the configured table for field transformations.
 

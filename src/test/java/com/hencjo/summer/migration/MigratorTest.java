@@ -7,6 +7,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,8 @@ import com.hencjo.summer.migration.api.UpgradeStep;
 public class MigratorTest {
 	private static final String NUMBER_OF_TABLES_SQL =
 			"SELECT count(*) as c FROM pg_tables WHERE schemaname=current_schema();";
+	private static final String MIGRATION_LOCK_SQL =
+			"SELECT pg_advisory_xact_lock(hashtext(?));";
 	private static final String CREATE_SCHEMA_MIGRATIONS_SQL =
 			"CREATE TABLE schema_migrations (id text PRIMARY KEY NOT NULL CHECK (id <> ''), installed timestamp DEFAULT now());";
 	private static final String SCHEMA_MIGRATIONS_EXISTS_SQL =
@@ -35,13 +38,15 @@ public class MigratorTest {
 	@Test
 	public void commitsSchemaMigrationsForAnEmptyMigrationList() throws Exception {
 		Connection connection = mock(Connection.class);
+		PreparedStatement lockStatement = migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(0);
 		Statement createStatement = mock(Statement.class);
 		when(connection.createStatement()).thenReturn(tableCountStatement, createStatement);
 
 		new Migrator().migrate(connection, migrations());
 
-		InOrder order = inOrder(createStatement, connection);
+		InOrder order = inOrder(lockStatement, createStatement, connection);
+		order.verify(lockStatement).execute();
 		order.verify(createStatement).executeUpdate(CREATE_SCHEMA_MIGRATIONS_SQL);
 		order.verify(connection).commit();
 	}
@@ -49,6 +54,7 @@ public class MigratorTest {
 	@Test
 	public void commitsSchemaMigrationsBeforeApplyingTheFirstMigration() throws Exception {
 		Connection connection = mock(Connection.class);
+		PreparedStatement lockStatement = migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(0);
 		Statement createStatement = mock(Statement.class);
 		when(connection.createStatement()).thenReturn(tableCountStatement, createStatement);
@@ -67,9 +73,11 @@ public class MigratorTest {
 			assertEquals("migration failed", expected.getMessage());
 		}
 
-		InOrder order = inOrder(createStatement, connection, failingStep);
+		InOrder order = inOrder(lockStatement, createStatement, connection, failingStep);
+		order.verify(lockStatement).execute();
 		order.verify(createStatement).executeUpdate(CREATE_SCHEMA_MIGRATIONS_SQL);
 		order.verify(connection).commit();
+		order.verify(lockStatement).execute();
 		order.verify(failingStep).apply(connection);
 		order.verify(connection).rollback();
 	}
@@ -77,6 +85,7 @@ public class MigratorTest {
 	@Test
 	public void rollsBackAndPreservesARuntimeMigrationFailure() throws Exception {
 		Connection connection = mock(Connection.class);
+		PreparedStatement lockStatement = migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(1);
 		when(connection.createStatement()).thenReturn(tableCountStatement);
 		PreparedStatement existsStatement = mock(PreparedStatement.class);
@@ -100,12 +109,14 @@ public class MigratorTest {
 		}
 
 		verify(connection).rollback();
-		verify(connection, never()).commit();
+		verify(connection).commit();
+		verify(lockStatement, times(2)).execute();
 	}
 
 	@Test
 	public void keepsTheMigrationFailureWhenRollbackAlsoFails() throws Exception {
 		Connection connection = mock(Connection.class);
+		migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(0);
 		Statement createStatement = mock(Statement.class);
 		when(connection.createStatement()).thenReturn(tableCountStatement, createStatement);
@@ -133,6 +144,7 @@ public class MigratorTest {
 	@Test
 	public void reportsTheTableCountWhenSchemaMigrationsIsMissing() throws Exception {
 		Connection connection = mock(Connection.class);
+		migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(5);
 		when(connection.createStatement()).thenReturn(tableCountStatement);
 		PreparedStatement existsStatement = mock(PreparedStatement.class);
@@ -150,11 +162,13 @@ public class MigratorTest {
 
 		verify(existsStatement).setString(1, "schema_migrations");
 		verify(connection, never()).commit();
+		verify(connection).rollback();
 	}
 
 	@Test
 	public void usesSingularTableInTheMissingSchemaMigrationsMessage() throws Exception {
 		Connection connection = mock(Connection.class);
+		migrationLock(connection);
 		Statement tableCountStatement = tableCountStatement(1);
 		when(connection.createStatement()).thenReturn(tableCountStatement);
 		PreparedStatement existsStatement = mock(PreparedStatement.class);
@@ -171,11 +185,47 @@ public class MigratorTest {
 		}
 	}
 
+	@Test
+	public void releasesTheMigrationLockWhenAMigrationWasAlreadyApplied() throws Exception {
+		Connection connection = mock(Connection.class);
+		PreparedStatement lockStatement = migrationLock(connection);
+		Statement tableCountStatement = tableCountStatement(1);
+		when(connection.createStatement()).thenReturn(tableCountStatement);
+		PreparedStatement existsStatement = mock(PreparedStatement.class);
+		ResultSet existsResult = mock(ResultSet.class);
+		when(connection.prepareStatement(SCHEMA_MIGRATIONS_EXISTS_SQL)).thenReturn(existsStatement);
+		when(existsStatement.executeQuery()).thenReturn(existsResult);
+		when(existsResult.getInt(1)).thenReturn(1);
+		PreparedStatement isAppliedStatement = mock(PreparedStatement.class);
+		ResultSet isAppliedResult = mock(ResultSet.class);
+		when(connection.prepareStatement(IS_APPLIED_SQL)).thenReturn(isAppliedStatement);
+		when(isAppliedStatement.executeQuery()).thenReturn(isAppliedResult);
+		when(isAppliedResult.getInt(1)).thenReturn(1);
+		UpgradeStep skippedStep = mock(UpgradeStep.class);
+
+		new Migrator().migrate(connection, migrations(migration("applied").installsThrough(skippedStep)));
+
+		InOrder order = inOrder(lockStatement, existsStatement, isAppliedStatement, connection);
+		order.verify(lockStatement).execute();
+		order.verify(existsStatement).executeQuery();
+		order.verify(connection).commit();
+		order.verify(lockStatement).execute();
+		order.verify(isAppliedStatement).executeQuery();
+		order.verify(connection).commit();
+		verify(skippedStep, never()).apply(connection);
+	}
+
 	private Statement tableCountStatement(int numberOfTables) throws Exception {
 		Statement statement = mock(Statement.class);
 		ResultSet resultSet = mock(ResultSet.class);
 		when(statement.executeQuery(NUMBER_OF_TABLES_SQL)).thenReturn(resultSet);
 		when(resultSet.getInt(1)).thenReturn(numberOfTables);
+		return statement;
+	}
+
+	private PreparedStatement migrationLock(Connection connection) throws Exception {
+		PreparedStatement statement = mock(PreparedStatement.class);
+		when(connection.prepareStatement(MIGRATION_LOCK_SQL)).thenReturn(statement);
 		return statement;
 	}
 }
