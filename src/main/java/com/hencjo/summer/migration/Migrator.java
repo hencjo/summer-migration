@@ -3,8 +3,6 @@ package com.hencjo.summer.migration;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.time.Duration;
-import java.time.Instant;
 
 import com.hencjo.summer.migration.api.UpgradeStep;
 import com.hencjo.summer.migration.dsl.Migration;
@@ -41,7 +39,7 @@ public final class Migrator {
 
 	private void migrations(Connection connection, Migration[] migrations) throws SQLException, IOException {
 		for (Migration migration : migrations) {
-			Instant start;
+			long startNanos;
 			try {
 				database.lockMigrations(connection);
 				if (schemaMigrations.isApplied(connection, migration.key)) {
@@ -49,7 +47,7 @@ public final class Migrator {
 					continue;
 				}
 				System.out.println("Applying migration \"" + migration.key + "\" ... ");
-				start = Instant.now();
+				startNanos = System.nanoTime();
 				for (UpgradeStep upgradeStep : migration.upgradeSteps) upgradeStep.apply(connection);
 				schemaMigrations.addApplied(connection, migration.key);
 				connection.commit();
@@ -57,8 +55,8 @@ public final class Migrator {
 				rollback(connection, e);
 				throw e;
 			}
-			Duration duration = Duration.between(start, Instant.now());
-			System.out.printf("Migration \"%s\" completed in %d.%03ds%n", migration.key, duration.getSeconds(), duration.getNano() / 1_000_000);
+			long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+			System.out.printf("Migration \"%s\" completed in %d.%03ds%n", migration.key, durationMillis / 1_000, durationMillis % 1_000);
 		}
 	}
 

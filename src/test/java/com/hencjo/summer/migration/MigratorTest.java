@@ -2,6 +2,7 @@ package com.hencjo.summer.migration;
 
 import static com.hencjo.summer.migration.dsl.DSL.migration;
 import static com.hencjo.summer.migration.dsl.DSL.migrations;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.inOrder;
@@ -11,7 +12,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -34,6 +37,8 @@ public class MigratorTest {
 			"select count(tablename) from pg_tables where schemaname=current_schema() AND tablename=?;";
 	private static final String IS_APPLIED_SQL =
 			"SELECT count(id) FROM schema_migrations WHERE id = ?;";
+	private static final String INSERT_APPLIED_SQL =
+			"INSERT INTO schema_migrations (id) VALUES (?);";
 
 	@Test
 	public void commitsSchemaMigrationsForAnEmptyMigrationList() throws Exception {
@@ -80,6 +85,37 @@ public class MigratorTest {
 		order.verify(lockStatement).execute();
 		order.verify(failingStep).apply(connection);
 		order.verify(connection).rollback();
+	}
+
+	@Test
+	public void reportsSuccessfulMigrationDurationInSecondsAndMilliseconds() throws Exception {
+		Connection connection = mock(Connection.class);
+		migrationLock(connection);
+		Statement tables = tableCountStatement(1);
+		when(connection.createStatement()).thenReturn(tables);
+		PreparedStatement existsStatement = mock(PreparedStatement.class);
+		ResultSet existsResult = mock(ResultSet.class);
+		when(connection.prepareStatement(SCHEMA_MIGRATIONS_EXISTS_SQL)).thenReturn(existsStatement);
+		when(existsStatement.executeQuery()).thenReturn(existsResult);
+		when(existsResult.getInt(1)).thenReturn(1);
+		PreparedStatement isAppliedStatement = mock(PreparedStatement.class);
+		ResultSet isAppliedResult = mock(ResultSet.class);
+		when(connection.prepareStatement(IS_APPLIED_SQL)).thenReturn(isAppliedStatement);
+		when(isAppliedStatement.executeQuery()).thenReturn(isAppliedResult);
+		when(isAppliedResult.getInt(1)).thenReturn(0);
+		PreparedStatement insertStatement = mock(PreparedStatement.class);
+		when(connection.prepareStatement(INSERT_APPLIED_SQL)).thenReturn(insertStatement);
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		PrintStream originalOutput = System.out;
+
+		try {
+			System.setOut(new PrintStream(output));
+			new Migrator().migrate(connection, migrations(migration("successful").installsThrough(c -> { })));
+		} finally {
+			System.setOut(originalOutput);
+		}
+
+		assertTrue(output.toString("UTF-8").matches("(?s).*Migration \"successful\" completed in \\d+\\.\\d{3}s\\R?"));
 	}
 
 	@Test

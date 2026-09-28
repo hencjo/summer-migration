@@ -4,6 +4,8 @@
 
 ## Features and improvements
 
+* Measure migration durations with a monotonic clock.
+
 ## Bug fixes
 
 ## Chores
