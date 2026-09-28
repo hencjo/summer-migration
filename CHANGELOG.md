@@ -4,11 +4,15 @@
 
 ## Features and improvements
 
-* Measure migration durations with a monotonic clock.
-
 ## Bug fixes
 
 ## Chores
+
+# Version 1.4.0
+
+## Features and improvements
+
+* Measure migration durations with a monotonic clock.
 
 # Version 1.3.2
 
